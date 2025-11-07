@@ -1,0 +1,11 @@
+Progress Log - 2025-11-08
+--------------------------------
+1. Added missing GUI dependency (PyQt5) to requirements.txt so installations cover all imports.
+2. Created data_insert.py to persist experiment records to CSV in a thread-safe manner.
+3. Implemented data_get.py to read historical experiment data from the log and filter by date/experiment.
+4. Converted the dashboard window from fullscreen to a centered resizable popup, then ensured it locks to content minimums and later restored fullscreen behavior with resizable frame.
+5. Reworked layout sizing (combo boxes, inputs, buttons, logos, data retrieval pane) to use dynamic size policies for responsive resizing.
+6. Ensured the graph area maintains a minimum height to avoid compression on load.
+7. Enhanced historical data retrieval to update UI labels and plots, including helper methods for data cleaning and plotting.
+8. Added a data history display mode, preventing live updates from clearing retrieved plots until a new experiment starts.
+9. Implemented a CLEAR button that resets labels, plots, and state to baseline.

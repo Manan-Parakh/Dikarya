@@ -1,0 +1,9 @@
+numpy
+pandas
+requests
+flask
+matplotlib
+scipy
+scikit-learn
+pyqtgraph
+PyQt5
