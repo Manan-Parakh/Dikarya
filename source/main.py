@@ -5,6 +5,7 @@ import pyqtgraph as pg
 import sys
 import os
 import re
+from pathlib import Path
 import pandas as pd
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QVBoxLayout,
@@ -17,7 +18,24 @@ from PyQt5.QtWidgets import QCalendarWidget
 from PyQt5.QtGui import QPixmap
 import pyqtgraph as pg
 
+# This code ensures that the project's root directory is in the Python import search path (sys.path),
+# so that modules within the project can be imported properly, especially those not in the same directory as this file.
+
+
+def _resolve_project_root():
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parents[1]
+
+
+project_root = _resolve_project_root()
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+from helper.paths import get_project_root
 from helper.data_insert import insert_experiment_record
+
+project_root = get_project_root()
 import threading
 
 # --- Mocking the 'data' module for file I/O and data simulation ---
@@ -26,8 +44,8 @@ class MockData:
         self.history = []
         self.current_exp_file = None
         self.current_exp_number = 0
-        self.log_dir = "Logs"
-        self.check_file = os.path.join(self.log_dir, "today_experment_check.txt")
+        self.log_dir = os.path.join(project_root, "Logs")
+        self.check_file = os.path.join(self.log_dir, "last_exp.txt")
         if not os.path.exists(self.log_dir):
             os.makedirs(self.log_dir)
 

@@ -12,7 +12,10 @@ import threading
 from pathlib import Path
 from typing import Mapping
 
-_LOG_DIR = Path("Logs")
+from helper.paths import get_project_root
+
+PROJECT_ROOT = get_project_root()
+_LOG_DIR = PROJECT_ROOT / "Logs"
 _LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 _CSV_PATH = _LOG_DIR / "experiment_records.csv"
@@ -29,6 +32,7 @@ _HEADERS = (
     "room_temp",
 )
 
+# This is a lock to ensure that only one thread writes to the experiment_records.csv file at a time, making file operations thread-safe.
 _FILE_LOCK = threading.Lock()
 
 

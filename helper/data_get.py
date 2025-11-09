@@ -12,7 +12,10 @@ from typing import Sequence
 
 import pandas as pd
 
-_LOG_PATH = Path("Logs") / "experiment_records.csv"
+from helper.paths import get_project_root
+
+PROJECT_ROOT = get_project_root()
+_LOG_PATH = PROJECT_ROOT / "Logs" / "experiment_records.csv"
 
 _COLUMNS = [
     "date",
