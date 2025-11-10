@@ -10,7 +10,7 @@ import pandas as pd
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QVBoxLayout,
     QHBoxLayout, QGridLayout, QComboBox, QLineEdit, QPushButton,
-    QMessageBox, QDateEdit, QSpinBox, QSizePolicy, QLayout
+    QMessageBox, QDateEdit, QSpinBox, QSizePolicy, QLayout, QFrame
 )
 from PyQt5.QtCore import Qt, QTimer, QDateTime, QDate, QTime
 from PyQt5 import QtGui, QtCore
@@ -183,16 +183,27 @@ class FullScreenWindow(QMainWindow):
         self.current_time_scale = 'Seconds'  
         self.max_history_points = self._calculate_max_points(self.current_time_scale)
 
-        # --- Theme/Layout Setup (Omitted for brevity) ---
-        self.bg_color = "#FFFFFF"            
-        self.fg_color = "#1E3A8A"            
-        self.accent_color2 = "#1288E9"        
-        self.border_style = f"2px solid {self.fg_color}"
-        self.button_style = f"""
-            QPushButton {{background-color: {self.fg_color}; color: white; border-radius: 5px; padding: 5px 10px; font-weight: bold;}}
-            QPushButton:hover {{background-color: {self.accent_color2};}}
+        # --- Theme/Layout Setup ---
+        self.bg_color = "#0B1120"
+        self.fg_color = "#E2E8F0"
+        self.accent_color = "#38BDF8"
+        self.accent_color2 = "#22D3EE"
+        self.surface_color = "#111B2E"
+        self.border_style = "1px solid #1F2A44"
+        self.button_style = """
+            QPushButton {
+                background-color: #2563EB;
+                color: #F8FAFC;
+                border-radius: 12px;
+                padding: 10px 20px;
+                font-weight: 600;
+                letter-spacing: 0.5px;
+                border: 1px solid #1D4ED8;
+            }
+            QPushButton:hover {background-color: #1D4ED8;}
+            QPushButton:disabled {background-color: #1E2A44; color: #64748B;}
         """
-        self.setStyleSheet(f"background-color: {self.bg_color};")
+        self.setStyleSheet(f"background-color: {self.bg_color}; color: {self.fg_color};")
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -204,33 +215,43 @@ class FullScreenWindow(QMainWindow):
         # Row stretches control how extra vertical space is distributed among rows (higher number = more space).
         # Setting spacing determines the space (in pixels) between widgets in the grid.
 
+        self.main_grid.setContentsMargins(24, 12, 24, 18)
         # Columns: left data column (0), right graph column (1), optional spacer (2)
-        self.main_grid.setColumnStretch(0, 3)     # Data/control stack (narrower)
-        self.main_grid.setColumnStretch(1, 8)     # Graph column (dominant)
+        self.main_grid.setColumnStretch(0, 2)     # Compact data/control stack
+        self.main_grid.setColumnStretch(1, 9)     # Graph column
         self.main_grid.setColumnStretch(2, 0)     # Optional spacer (unused)
 
         # Rows: header (0), data label (1), control panel (2), chart (3), data retrieval (4), footer (5)
         self.main_grid.setRowStretch(0, 10)   # Header/bar
         self.main_grid.setRowStretch(1, 30)   # Data labels
         self.main_grid.setRowStretch(2, 10)   # Control panel
-        # self.main_grid.setRowStretch(3, 60)   # Main chart/graph area
-        self.main_grid.setSpacing(50)         # Space between all widgets in the grid
-        self.main_grid.setRowStretch(4, 10)   # Data retrieval panel
+        self.main_grid.setRowStretch(3, 45)   # Main chart/graph area
+        self.main_grid.setSpacing(24)         # Space between widgets in the grid
+        self.main_grid.setRowStretch(4, 12)   # Data retrieval panel
         self.main_grid.setRowStretch(5, 0)    # Footer (optionally unused/minimal space)
 
         # --- UI Component Initialization and Placement (Omitted for brevity) ---
         self._setup_header_area()
         self.main_grid.addWidget(self.header_widget, 0, 0, 1, 2)
         self.data_label_widget = self._create_data_display_widget()
-        self.main_grid.addWidget(self.data_label_widget, 1, 0, 1, 1)
         self.control_panel_widget = self._setup_control_panel()
-        self.main_grid.addWidget(self.control_panel_widget, 2, 0, 1, 1)
-        self.chart_widget, self.w1_curve, self.w2_curve = self._create_line_chart_widget()
-        self.main_grid.addWidget(self.chart_widget, 1, 1, 4, 1)
         self._setup_data_retrieval_panel()
-        self.main_grid.addWidget(self.data_retrieval_widget, 4, 0, 1, 1)
+
+        self.left_column_container = QWidget()
+        self.left_column_container.setMaximumWidth(420)
+        left_layout = QVBoxLayout(self.left_column_container)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(16)
+        left_layout.addWidget(self.data_label_widget)
+        left_layout.addWidget(self.control_panel_widget)
+        left_layout.addWidget(self.data_retrieval_widget)
+        left_layout.addStretch()
+
+        self.chart_widget, self.w1_curve, self.w2_curve = self._create_line_chart_widget()
+        self.main_grid.addWidget(self.left_column_container, 1, 0, 4, 1, Qt.AlignTop)
+        self.main_grid.addWidget(self.chart_widget, 1, 1, 3, 1)
         self._setup_footer_area()
-        self.main_grid.addWidget(self.footer_container, 5, 0, 1, 1)
+        self.main_grid.addWidget(self.footer_container, 5, 0, 1, 2)
 
         # --- Timers (Omitted for brevity) ---
         self.datetime_timer = QTimer(self); self.datetime_timer.timeout.connect(self.update_datetime); self.datetime_timer.start(1000)
@@ -438,9 +459,20 @@ class FullScreenWindow(QMainWindow):
         self.time_scale_combo.setMinimumHeight(40)
         self.time_scale_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.time_scale_combo.setStyleSheet("""
-            QComboBox {border: 2px solid #1E3A8A; border-radius: 8px; padding: 5px 12px; background-color: #E3F2FD; color: #1E3A8A; font-weight: bold;}
+            QComboBox {
+                border: 1px solid #1F2A44;
+                border-radius: 10px;
+                padding: 6px 12px;
+                background-color: #0F172A;
+                color: #E2E8F0;
+                font-weight: 600;
+            }
             QComboBox::down-arrow {content: "▼"; font-size: 10px; color: black; width: 10px; height: 9px; padding-right: 5px;}
-            QComboBox QAbstractItemView {background-color: #FFFFFF; selection-background-color: #90CAF9; color: #1E3A8A;}
+            QComboBox QAbstractItemView {
+                background-color: #111B2E;
+                selection-background-color: #1E293B;
+                color: #F8FAFC;
+            }
         """)
         self.time_scale_combo.currentIndexChanged.connect(self._handle_scale_change)
         h_layout.addWidget(self.time_scale_combo)
@@ -456,7 +488,8 @@ class FullScreenWindow(QMainWindow):
         self.max_history_points = self._calculate_max_points(new_scale)
         self.plot_widget.setXRange(0, scale_data['range'], padding=0.05)
         axis_label = f"Time ({scale_data['unit_label'].capitalize()})"
-        self.plot_widget.getAxis("bottom").setLabel(text=axis_label)
+        label_font = QtGui.QFont("Segoe UI", 14, QtGui.QFont.Bold)
+        self.plot_widget.getAxis("bottom").setLabel(text=axis_label, font=label_font, color="#F8FAFC")
         self.x_axis.set_time_unit(scale_data['unit_label'].capitalize())
         self.update_data()
 
@@ -556,14 +589,18 @@ class FullScreenWindow(QMainWindow):
 
     def _setup_control_panel(self):
         widget = QWidget()
-        h_layout = QHBoxLayout(widget)
-        h_layout.setContentsMargins(10, 0, 10, 0)
-        h_layout.setSpacing(15)
+        widget.setMaximumWidth(420)
+        widget.setStyleSheet(
+            "background-color: #111B2E; border: 1px solid #1F2A44; border-radius: 14px; padding: 12px;"
+        )
+        main_layout = QVBoxLayout(widget)
+        main_layout.setContentsMargins(8, 0, 8, 0)
+        main_layout.setSpacing(12)
 
         # --- Time scale (graph) selector ---
         time_scale_widget = self._add_time_scale_selector_inner()
-        h_layout.addWidget(time_scale_widget)
-        h_layout.addStretch()
+        main_layout.addWidget(time_scale_widget)
+        main_layout.addSpacing(6)
 
         font_label = QtGui.QFont("Segoe UI", 12, QtGui.QFont.Bold)
 
@@ -571,7 +608,8 @@ class FullScreenWindow(QMainWindow):
         interval_label = QLabel("Log Interval:")
         interval_label.setFont(font_label)
         interval_label.setStyleSheet(f"color: {self.fg_color};")
-        h_layout.addWidget(interval_label)
+        interval_label.setAlignment(Qt.AlignLeft)
+        main_layout.addWidget(interval_label)
 
         # --- NEW: Unit dropdown (Seconds / Minutes) ---
         self.interval_unit_combo = QComboBox()
@@ -582,21 +620,26 @@ class FullScreenWindow(QMainWindow):
         self.interval_unit_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.interval_unit_combo.setStyleSheet("""
             QComboBox {
-                border: 2px solid #1E3A8A; border-radius: 8px;
-                padding: 5px 12px; background-color: #E3F2FD;
-                color: #1E3A8A; font-weight: bold;
+                border: 1px solid #1F2A44;
+                border-radius: 10px;
+                padding: 6px 12px;
+                background-color: #0F172A;
+                color: #E2E8F0;
+                font-weight: 600;
             }
             QComboBox::down-arrow {
                 content: "▼"; font-size: 10px; color: black;
                 width: 10px; height: 9px; padding-right: 5px;
             }
             QComboBox QAbstractItemView {
-                background-color: #FFFFFF;
-                selection-background-color: #90CAF9;
-                color: #1E3A8A;
+                background-color: #111B2E;
+                selection-background-color: #1E293B;
+                color: #F8FAFC;
             }
         """)
-        h_layout.addWidget(self.interval_unit_combo)
+        unit_interval_row = QHBoxLayout()
+        unit_interval_row.setSpacing(10)
+        unit_interval_row.addWidget(self.interval_unit_combo)
 
         # --- NEW: Value input field ---
         self.interval_input = QLineEdit("2")
@@ -607,49 +650,56 @@ class FullScreenWindow(QMainWindow):
         self.interval_input.setAlignment(Qt.AlignCenter)
         self.interval_input.setStyleSheet("""
             QLineEdit {
-                border: 2px solid #1E3A8A; border-radius: 8px;
-                background-color: #E3F2FD; color: #1E3A8A;
-                font-weight: bold;
+                border: 1px solid #1F2A44;
+                border-radius: 10px;
+                background-color: #0F172A;
+                color: #E2E8F0;
+                font-weight: 600;
             }
         """)
-        h_layout.addWidget(self.interval_input)
+        unit_interval_row.addWidget(self.interval_input)
+        main_layout.addLayout(unit_interval_row)
+        main_layout.addSpacing(4)
 
         # --- Start/Stop buttons ---
         button_font = QtGui.QFont("Segoe UI", 9, QtGui.QFont.Bold)
 
-        self.start_button = QPushButton("START EXPERIMENT")
+        self.start_button = QPushButton("Start Experiment")
         self.start_button.setFont(button_font)
         self.start_button.setMinimumHeight(45)
         self.start_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.start_button.setStyleSheet("""
-            QPushButton {background-color: #2E7D32; color: white; border-radius: 10px; padding: 5px 15px;}
-            QPushButton:hover {background-color: #43A047;}
+            QPushButton {background-color: #16A34A; color: white; border-radius: 12px; padding: 8px 18px; letter-spacing: 0.3px;}
+            QPushButton:hover {background-color: #22C55E;}
         """)
         self.start_button.clicked.connect(self._start_experiment)
-        h_layout.addWidget(self.start_button)
 
-        self.stop_button = QPushButton("STOP EXPERIMENT")
+        self.stop_button = QPushButton("Stop Experiment")
         self.stop_button.setFont(button_font)
         self.stop_button.setMinimumHeight(45)
         self.stop_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.stop_button.setStyleSheet("""
-            QPushButton {background-color: #D32F2F; color: white; border-radius: 10px; padding: 5px 15px;}
-            QPushButton:hover {background-color: #E53935;}
+            QPushButton {background-color: #DC2626; color: white; border-radius: 12px; padding: 8px 18px; letter-spacing: 0.3px;}
+            QPushButton:hover {background-color: #EF4444;}
         """)
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self._stop_experiment)
-        h_layout.addWidget(self.stop_button)
 
-        self.clear_button = QPushButton("CLEAR")
+        self.clear_button = QPushButton("Clear Dashboard")
         self.clear_button.setFont(button_font)
         self.clear_button.setMinimumHeight(45)
         self.clear_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.clear_button.setStyleSheet("""
-            QPushButton {background-color: #546E7A; color: white; border-radius: 10px; padding: 5px 15px;}
-            QPushButton:hover {background-color: #78909C;}
+            QPushButton {background-color: #475569; color: white; border-radius: 12px; padding: 8px 18px; letter-spacing: 0.3px;}
+            QPushButton:hover {background-color: #64748B;}
         """)
         self.clear_button.clicked.connect(self._clear_dashboard)
-        h_layout.addWidget(self.clear_button)
+        buttons_row = QHBoxLayout()
+        buttons_row.setSpacing(10)
+        buttons_row.addWidget(self.start_button)
+        buttons_row.addWidget(self.stop_button)
+        buttons_row.addWidget(self.clear_button)
+        main_layout.addLayout(buttons_row)
 
         return widget
 
@@ -688,11 +738,15 @@ class FullScreenWindow(QMainWindow):
 
     def _create_data_display_widget(self):
         widget = QWidget()
-        widget.setStyleSheet(f"background-color: #FFFFFF; border: {self.border_style}; border-radius: 12px;")
+        widget.setMaximumWidth(420)
+        widget.setStyleSheet(
+            "background-color: #121C30; border: 1px solid #1F2A44; border-radius: 18px;"
+        )
         vbox = QVBoxLayout(widget)
-        vbox.setSpacing(25)
-        vbox.setContentsMargins(20, 20, 20, 20)
+        vbox.setSpacing(18)
+        vbox.setContentsMargins(24, 24, 24, 24)
         vbox.setAlignment(Qt.AlignTop)
+
         self.exp_label = QLabel()
         self.t1_label = QLabel()
         self.t2_label = QLabel()
@@ -700,27 +754,73 @@ class FullScreenWindow(QMainWindow):
         self.w2_label = QLabel()
         self.rt1_label = QLabel()
         self.w_diff_label = QLabel()
-        label_style = "color: #0D1B2A; font-size: 22px; font-weight: bold; padding: 8px 16px; background-color: #5D8AA8; border-radius: 10px;"
-        title_style = "color: #1E3A8A; font-weight: bold; font-size: 30px; padding: 10px 16px; background-color: #FFD700; border-radius: 12px;"
-        exp_style = "color: #FFFFFF; font-weight: bold; font-size: 34px; padding: 10px 20px; background-color: #2B65EC; border-radius: 15px;"
-        diff_style = "color: #0D1B2A; font-weight: bold; font-size: 22px; padding: 8px 16px; background-color: #5D8AA8; border-radius: 10px;"
+
+        exp_style = """
+            color: #F8FAFC;
+            font-weight: 700;
+            font-size: 30px;
+            padding: 14px 20px;
+            background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 #2563EB, stop:1 #7C3AED);
+            border-radius: 16px;
+            letter-spacing: 1px;
+        """
+        title_style = """
+            color: #F8FAFC;
+            font-weight: 700;
+            font-size: 22px;
+            padding: 8px 16px;
+            border-radius: 10px;
+            background-color: #1E293B;
+            border: 1px solid #27344D;
+        """
+        card_style = """
+            color: #E2E8F0;
+            font-size: 18px;
+            font-weight: 600;
+            padding: 10px 14px;
+            border-radius: 10px;
+            background-color: #162136;
+            border: 1px solid #1F2A44;
+        """
+        highlight_style = """
+            color: #FDE68A;
+            font-size: 19px;
+            font-weight: 700;
+            padding: 10px 16px;
+            border-radius: 10px;
+            background-color: #1F172A;
+            border: 1px solid #FBBF24;
+        """
+
         self.exp_label.setAlignment(Qt.AlignCenter)
         self.exp_label.setStyleSheet(exp_style)
         vbox.addWidget(self.exp_label)
-        for text in ("LPG PLUS (+)", "LPG"):
-            title_lbl = QLabel(text)
+
+        def add_section(title_text, labels, add_divider=True):
+            title_lbl = QLabel(title_text)
             title_lbl.setAlignment(Qt.AlignCenter)
             title_lbl.setStyleSheet(title_style)
             vbox.addWidget(title_lbl)
-        for lbl in (self.t1_label, self.t2_label, self.w1_label, self.w2_label):
-            lbl.setAlignment(Qt.AlignCenter)
-            lbl.setStyleSheet(label_style)
-            vbox.addWidget(lbl)
+            for lbl in labels:
+                lbl.setAlignment(Qt.AlignCenter)
+                lbl.setStyleSheet(card_style)
+                vbox.addWidget(lbl)
+            if add_divider:
+                separator = QFrame()
+                separator.setFrameShape(QFrame.HLine)
+                separator.setFrameShadow(QFrame.Sunken)
+                separator.setStyleSheet("color: #1F2A44; margin: 4px 0;")
+                vbox.addWidget(separator)
+
+        add_section("LPG", (self.t1_label, self.w1_label), add_divider=True)
+        add_section("LPG PLUS (+)", (self.t2_label, self.w2_label), add_divider=False)
+
         self.rt1_label.setAlignment(Qt.AlignCenter)
-        self.rt1_label.setStyleSheet(label_style)
+        self.rt1_label.setStyleSheet(card_style)
         vbox.addWidget(self.rt1_label)
         self.w_diff_label.setAlignment(Qt.AlignCenter)
-        self.w_diff_label.setStyleSheet(diff_style)
+        self.w_diff_label.setStyleSheet(highlight_style)
         vbox.addWidget(self.w_diff_label)
         return widget
 
@@ -728,27 +828,38 @@ class FullScreenWindow(QMainWindow):
         self.x_axis = TimeAxisItem(orientation="bottom")
         self.plot_widget = pg.PlotWidget(axisItems={"bottom": self.x_axis})
         self.plot_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.plot_widget.setMinimumHeight(330)
+        self.plot_widget.setMinimumHeight(360)
         self.plot_widget.setMouseEnabled(x=False, y=False)
         self.plot_widget.hideButtons()
         self.plot_widget.setMenuEnabled(False)
-        self.plot_widget.setBackground("#FFFFFF")
-        self.plot_widget.getPlotItem().setContentsMargins(10, 10, 10, 10)
-        self.plot_widget.setStyleSheet("border: 1px solid #E2E8F0; border-radius: 8px;")
+
+        gradient = QtGui.QLinearGradient(0, 0, 0, 1)
+        gradient.setCoordinateMode(QtGui.QGradient.ObjectBoundingMode)
+        gradient.setColorAt(0.0, QtGui.QColor("#1E293B"))
+        gradient.setColorAt(1.0, QtGui.QColor("#050B16"))
+        self.plot_widget.setBackground(QtGui.QBrush(gradient))
+        self.plot_widget.getPlotItem().setContentsMargins(20, 30, 10, 10)
+        self.plot_widget.setStyleSheet("border: 1px solid #1F2A44; border-radius: 14px;")
 
         self.plot_widget.setTitle(
-            "<span style='color:#0F172A;font-size:16pt;font-weight:600;'>Weight Trend (W1 vs W2)</span>"
+            "<span style='color:#F8FAFC;font-size:17pt;font-weight:600;'>Weight Trend (W1 vs W2)</span>"
         )
 
-        self.plot_widget.addLegend(offset=(10, 10), labelTextColor="#0F172A")
-        self.plot_widget.showGrid(x=True, y=True, alpha=0.2)
+        legend = self.plot_widget.addLegend(offset=(10, 10), labelTextColor="#CBD5F5")
+        try:
+            legend.setBrush(pg.mkBrush(QtGui.QColor(15, 23, 42, 220)))
+            legend.setPen(pg.mkPen("#1F2A44"))
+        except AttributeError:
+            pass
+        self.plot_widget.showGrid(x=True, y=True, alpha=0.1)
 
         scale_data = self.time_scales[self.current_time_scale]
         self.plot_widget.setXRange(0, scale_data["range"], padding=0)
         self.plot_widget.setYRange(14, 32, padding=0)
 
-        label_font = QtGui.QFont("Segoe UI", 12, QtGui.QFont.Medium)
-        axis_pen = pg.mkPen("#94A3B8", width=1)
+        label_font = QtGui.QFont("Segoe UI", 14, QtGui.QFont.Bold)
+        tick_font = QtGui.QFont("Segoe UI", 11, QtGui.QFont.Bold)
+        axis_pen = pg.mkPen("#334155", width=1)
         for axis in ("left", "bottom"):
             axis_item = self.plot_widget.getAxis(axis)
             axis_label = (
@@ -756,14 +867,15 @@ class FullScreenWindow(QMainWindow):
                 if axis == "left"
                 else f"Time ({scale_data['unit_label'].capitalize()})"
             )
-            axis_item.setLabel(text=axis_label, font=label_font)
+            axis_item.setLabel(text=axis_label, font=label_font, color="#F8FAFC")
             axis_item.setPen(axis_pen)
-            axis_item.setTextPen(pg.mkPen("#475569"))
+            axis_item.setTextPen(pg.mkPen("#E2E8F0"))
+            axis_item.setStyle(tickFont=tick_font)
 
         self.x_axis.set_time_unit(scale_data["unit_label"].capitalize())
 
-        w1_pen = pg.mkPen(color="#2563EB", width=0.8, cosmetic=True)
-        w2_pen = pg.mkPen(color="#F97316", width=0.8, cosmetic=True)
+        w1_pen = pg.mkPen(color="#38BDF8", width=2, cosmetic=False)
+        w2_pen = pg.mkPen(color="#F97316", width=2, cosmetic=False)
 
         w1_curve = self.plot_widget.plot(name="Weight 1 (W1)", pen=w1_pen, antialias=True)
         w2_curve = self.plot_widget.plot(name="Weight 2 (W2)", pen=w2_pen, antialias=True)
@@ -901,7 +1013,7 @@ class FullScreenWindow(QMainWindow):
         h_layout.setContentsMargins(0, 0, 0, 0)
         h_layout.setSpacing(10)
         self.datetime_label = QLabel()
-        self.datetime_label.setStyleSheet("color: #6C757D; font-size: 14px; padding: 5px;")
+        self.datetime_label.setStyleSheet("color: #94A3B8; font-size: 13px; padding: 5px;")
         h_layout.addStretch()
         h_layout.addWidget(self.datetime_label)
 
@@ -914,64 +1026,98 @@ class FullScreenWindow(QMainWindow):
 
     def _setup_data_retrieval_panel(self):
         self.data_retrieval_widget = QWidget()
+        self.data_retrieval_widget.setMaximumWidth(420)
         self.data_retrieval_widget.setStyleSheet("""
-            border: 2px solid gray; border-radius: 10px; padding: 10px; background-color: #FFFFFF;
+            border: 1px solid #1F2A44;
+            border-radius: 16px;
+            padding: 14px;
+            background-color: #111B2E;
         """)
         self.data_retrieval_widget.setMinimumHeight(110)
         self.data_retrieval_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
-        h_layout = QHBoxLayout(self.data_retrieval_widget)
-        h_layout.setContentsMargins(10, 5, 10, 5)
-        h_layout.setSpacing(20)
-        h_layout.setAlignment(Qt.AlignCenter)
+        main_layout = QVBoxLayout(self.data_retrieval_widget)
+        main_layout.setContentsMargins(16, 10, 16, 10)
+        main_layout.setSpacing(12)
+
+        field_label_style = "color: #E2E8F0; font-weight: 600;"
+        date_edit_style = """
+            QDateEdit {
+                background-color: #0F172A;
+                border: 1px solid #1F2A44;
+                border-radius: 10px;
+                padding: 6px 10px;
+                min-width: 140px;
+                color: #E2E8F0;
+            }
+            QDateEdit::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 28px;
+                border-left: 1px solid #1F2A44;
+                background-color: #1E293B;
+                border-top-right-radius: 10px;
+                border-bottom-right-radius: 10px;
+            }
+            QDateEdit::down-arrow {
+                image: none;
+                color: #E2E8F0;
+                font-size: 10px;
+                width: 12px;
+            }
+        """
 
         # --- Start Date ---
-        h_layout.addWidget(QLabel("Start Date:"))
+        start_row = QHBoxLayout()
+        start_row.setSpacing(10)
+        start_label = QLabel("Start Date:")
+        start_label.setStyleSheet(field_label_style)
+        start_row.addWidget(start_label)
         self.start_date_edit = QDateEdit(QDate.currentDate())
         self.start_date_edit.setCalendarPopup(True)
         self.start_date_edit.setDisplayFormat("yyyy-MM-dd")
-        self.start_date_edit.setStyleSheet("""
-            QDateEdit {background-color: white; border: 2px solid gray; border-radius: 5px; padding: 5px;}
-            QComboBox::drop-down {subcontrol-origin: padding; subcontrol-position: top right; width: 25px; border-left: 2px solid gray; background-color: #FF6600; border-top-right-radius: 5px; border-bottom-right-radius: 5px;}
-            QComboBox::down-arrow {content: "▼"; font-size: 10px; color: black; width: 10px; height: 9px; padding-right: 5px;}
-            QComboBox::drop-down:hover {background-color: #FF8533;}
-        """)
+        self.start_date_edit.setStyleSheet(date_edit_style)
         calendar_start = QCalendarWidget()
         calendar_start.setStyleSheet("""
-            QCalendarWidget QWidget { color: black; }
-            QCalendarWidget QAbstractItemView:enabled {color: black; selection-background-color: #87CEFA;}
-            QCalendarWidget QToolButton { color: black; font-weight: bold; }
-            QCalendarWidget QSpinBox { color: black; }
+            QCalendarWidget QWidget { color: #E2E8F0; background-color: #0F172A; }
+            QCalendarWidget QAbstractItemView:enabled {color: #E2E8F0; selection-background-color: #2563EB;}
+            QCalendarWidget QToolButton { color: #E2E8F0; font-weight: bold; }
+            QCalendarWidget QSpinBox { color: #E2E8F0; }
         """)
         self.start_date_edit.setCalendarWidget(calendar_start)
-        h_layout.addWidget(self.start_date_edit)
+        start_row.addWidget(self.start_date_edit)
+        start_row.addStretch()
+        main_layout.addLayout(start_row)
 
         # --- End Date ---
-        h_layout.addWidget(QLabel("End Date:"))
+        end_row = QHBoxLayout()
+        end_row.setSpacing(10)
+        end_label = QLabel("End Date:")
+        end_label.setStyleSheet(field_label_style)
+        end_row.addWidget(end_label)
         self.end_date_edit = QDateEdit(QDate.currentDate())
         self.end_date_edit.setCalendarPopup(True)
         self.end_date_edit.setDisplayFormat("yyyy-MM-dd")
-        self.end_date_edit.setStyleSheet("""
-            QDateEdit {background-color: white; border: 2px solid gray; border-radius: 5px; padding: 5px;}
-            QComboBox::drop-down {subcontrol-origin: padding; subcontrol-position: top right; width: 25px; border-left: 2px solid gray; background-color: #FF6600; border-top-right-radius: 5px; border-bottom-right-radius: 5px;}
-            QComboBox::down-arrow {content: "▼"; font-size: 10px; color: black; width: 10px; height: 9px; padding-right: 5px;}
-            QComboBox::drop-down:hover {background-color: #FF8533;}
-        """)
+        self.end_date_edit.setStyleSheet(date_edit_style)
         calendar_end = QCalendarWidget()
         calendar_end.setStyleSheet("""
-            QCalendarWidget QWidget { color: black; }
-            QCalendarWidget QAbstractItemView:enabled {color: black; selection-background-color: #87CEFA;}
-            QCalendarWidget QToolButton { color: black; font-weight: bold; }
-            QCalendarWidget QSpinBox { color: black; }
+            QCalendarWidget QWidget { color: #E2E8F0; background-color: #0F172A; }
+            QCalendarWidget QAbstractItemView:enabled {color: #E2E8F0; selection-background-color: #2563EB;}
+            QCalendarWidget QToolButton { color: #E2E8F0; font-weight: bold; }
+            QCalendarWidget QSpinBox { color: #E2E8F0; }
         """)
         self.end_date_edit.setCalendarWidget(calendar_end)
-        h_layout.addWidget(self.end_date_edit)
+        end_row.addWidget(self.end_date_edit)
+        end_row.addStretch()
+        main_layout.addLayout(end_row)
 
         # --- Experiment Number Entry Box ---
+        exp_row = QHBoxLayout()
+        exp_row.setSpacing(10)
         exp_label = QLabel("Experiment No(s):")
         exp_label.setFont(QtGui.QFont("Segoe UI", 11, QtGui.QFont.Bold))
-        exp_label.setStyleSheet("color: #0D47A1;")
-        h_layout.addWidget(exp_label)
+        exp_label.setStyleSheet(field_label_style)
+        exp_row.addWidget(exp_label)
 
         self.exp_input = QLineEdit()
         self.exp_input.setPlaceholderText("e.g. 1, 2, 3")
@@ -980,20 +1126,29 @@ class FullScreenWindow(QMainWindow):
         self.exp_input.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.exp_input.setStyleSheet("""
             QLineEdit {
-                background-color: white; border: 2px solid gray; border-radius: 5px;
-                padding: 5px; font-size: 11pt;
+                background-color: #0F172A;
+                border: 1px solid #1F2A44;
+                border-radius: 10px;
+                padding: 8px 10px;
+                font-size: 11pt;
+                color: #E2E8F0;
             }
-            QLineEdit:focus { border: 2px solid #FF6600; }
+            QLineEdit:focus { border: 1px solid #38BDF8; }
         """)
-        h_layout.addWidget(self.exp_input)
+        exp_row.addWidget(self.exp_input)
+        exp_row.addStretch()
+        main_layout.addLayout(exp_row)
 
         # --- Get Data Button ---
-        self.get_data_button = QPushButton("Get Data")
-        self.get_data_button.setStyleSheet(self.button_style.replace(self.fg_color, "#FF6600"))
+        self.get_data_button = QPushButton("Retrieve Data")
+        self.get_data_button.setStyleSheet("""
+            QPushButton {background-color: #F97316; color: white; border-radius: 12px; padding: 10px 20px; font-weight: 600;}
+            QPushButton:hover {background-color: #FB923C;}
+        """)
         self.get_data_button.setMinimumHeight(40)
         self.get_data_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.get_data_button.clicked.connect(self.retrieve_historical_data)
-        h_layout.addWidget(self.get_data_button)
+        main_layout.addWidget(self.get_data_button)
 
         return self.data_retrieval_widget
 
