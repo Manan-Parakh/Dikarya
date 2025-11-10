@@ -199,30 +199,38 @@ class FullScreenWindow(QMainWindow):
         self.main_grid = QGridLayout(central_widget)
         self.main_grid.setSizeConstraint(QLayout.SetMinimumSize)
         # ... (Layout configuration) ...
-        self.main_grid.setColumnStretch(0, 5)
-        self.main_grid.setColumnStretch(1, 80)
-        self.main_grid.setColumnStretch(2, 5)
-        self.main_grid.setRowStretch(0, 10)
-        self.main_grid.setRowStretch(1, 27)
-        self.main_grid.setRowStretch(2, 10)
-        self.main_grid.setRowStretch(3, 45)
-        self.main_grid.setSpacing(50)
-        self.main_grid.setRowStretch(4, 10)
-        self.main_grid.setRowStretch(5, 0)
+        # The following lines configure the layout proportions of the main_grid using "stretches" and "spacing".
+        # Column stretches control how extra horizontal space is distributed among columns (higher number = more space).
+        # Row stretches control how extra vertical space is distributed among rows (higher number = more space).
+        # Setting spacing determines the space (in pixels) between widgets in the grid.
+
+        # Columns: left data column (0), right graph column (1), optional spacer (2)
+        self.main_grid.setColumnStretch(0, 3)     # Data/control stack (narrower)
+        self.main_grid.setColumnStretch(1, 8)     # Graph column (dominant)
+        self.main_grid.setColumnStretch(2, 0)     # Optional spacer (unused)
+
+        # Rows: header (0), data label (1), control panel (2), chart (3), data retrieval (4), footer (5)
+        self.main_grid.setRowStretch(0, 10)   # Header/bar
+        self.main_grid.setRowStretch(1, 30)   # Data labels
+        self.main_grid.setRowStretch(2, 10)   # Control panel
+        # self.main_grid.setRowStretch(3, 60)   # Main chart/graph area
+        self.main_grid.setSpacing(50)         # Space between all widgets in the grid
+        self.main_grid.setRowStretch(4, 10)   # Data retrieval panel
+        self.main_grid.setRowStretch(5, 0)    # Footer (optionally unused/minimal space)
 
         # --- UI Component Initialization and Placement (Omitted for brevity) ---
         self._setup_header_area()
-        self.main_grid.addWidget(self.header_widget, 0, 1, 1, 1)
+        self.main_grid.addWidget(self.header_widget, 0, 0, 1, 2)
         self.data_label_widget = self._create_data_display_widget()
-        self.main_grid.addWidget(self.data_label_widget, 1, 1, 1, 1)
+        self.main_grid.addWidget(self.data_label_widget, 1, 0, 1, 1)
         self.control_panel_widget = self._setup_control_panel()
-        self.main_grid.addWidget(self.control_panel_widget, 2, 1, 1, 1)
+        self.main_grid.addWidget(self.control_panel_widget, 2, 0, 1, 1)
         self.chart_widget, self.w1_curve, self.w2_curve = self._create_line_chart_widget()
-        self.main_grid.addWidget(self.chart_widget, 3, 1, 1, 1)
+        self.main_grid.addWidget(self.chart_widget, 1, 1, 4, 1)
         self._setup_data_retrieval_panel()
-        self.main_grid.addWidget(self.data_retrieval_widget, 4, 1, 1, 1)  
+        self.main_grid.addWidget(self.data_retrieval_widget, 4, 0, 1, 1)
         self._setup_footer_area()
-        self.main_grid.addWidget(self.footer_container, 5, 1, 1, 1)  
+        self.main_grid.addWidget(self.footer_container, 5, 0, 1, 1)
 
         # --- Timers (Omitted for brevity) ---
         self.datetime_timer = QTimer(self); self.datetime_timer.timeout.connect(self.update_datetime); self.datetime_timer.start(1000)
@@ -446,7 +454,9 @@ class FullScreenWindow(QMainWindow):
         self.current_time_scale = new_scale
         scale_data = self.time_scales[new_scale]
         self.max_history_points = self._calculate_max_points(new_scale)
-        self.plot_widget.setXRange(0, scale_data['range'], padding=0)
+        self.plot_widget.setXRange(0, scale_data['range'], padding=0.05)
+        axis_label = f"Time ({scale_data['unit_label'].capitalize()})"
+        self.plot_widget.getAxis("bottom").setLabel(text=axis_label)
         self.x_axis.set_time_unit(scale_data['unit_label'].capitalize())
         self.update_data()
 
@@ -498,8 +508,7 @@ class FullScreenWindow(QMainWindow):
 
     def _apply_historical_dataset(self, df):
         if df.empty:
-            self.w1_curve.setData([], [])
-            self.w2_curve.setData([], [])
+            self._clear_plot_items()
             return
         self._enter_history_mode()
 
@@ -523,8 +532,7 @@ class FullScreenWindow(QMainWindow):
 
     def _plot_dataframe(self, df):
         if df.empty:
-            self.w1_curve.setData([], [])
-            self.w2_curve.setData([], [])
+            self._clear_plot_items()
             return
 
         df_to_plot = df.tail(self.max_history_points).copy()
@@ -543,6 +551,7 @@ class FullScreenWindow(QMainWindow):
         w2_values = df_to_plot["weight_2"].ffill().bfill().fillna(0.0).tolist()
         self.w1_curve.setData(x_data, w1_values)
         self.w2_curve.setData(x_data, w2_values)
+        self._update_axis_ranges(x_data, w1_values, w2_values)
 
 
     def _setup_control_panel(self):
@@ -698,26 +707,15 @@ class FullScreenWindow(QMainWindow):
         self.exp_label.setAlignment(Qt.AlignCenter)
         self.exp_label.setStyleSheet(exp_style)
         vbox.addWidget(self.exp_label)
-        title_layout = QHBoxLayout()
-        stone1 = QLabel("LPG PLUS (+)")
-        stone2 = QLabel("LPG")
-        for lbl in (stone1, stone2):
-            lbl.setAlignment(Qt.AlignCenter)
-            lbl.setStyleSheet(title_style)
-            title_layout.addWidget(lbl)
-        vbox.addLayout(title_layout)
-        temp_layout = QHBoxLayout()
-        for lbl in (self.t1_label, self.t2_label):
+        for text in ("LPG PLUS (+)", "LPG"):
+            title_lbl = QLabel(text)
+            title_lbl.setAlignment(Qt.AlignCenter)
+            title_lbl.setStyleSheet(title_style)
+            vbox.addWidget(title_lbl)
+        for lbl in (self.t1_label, self.t2_label, self.w1_label, self.w2_label):
             lbl.setAlignment(Qt.AlignCenter)
             lbl.setStyleSheet(label_style)
-            temp_layout.addWidget(lbl)
-        vbox.addLayout(temp_layout)
-        weight_layout = QHBoxLayout()
-        for lbl in (self.w1_label, self.w2_label):
-            lbl.setAlignment(Qt.AlignCenter)
-            lbl.setStyleSheet(label_style)
-            weight_layout.addWidget(lbl)
-        vbox.addLayout(weight_layout)
+            vbox.addWidget(lbl)
         self.rt1_label.setAlignment(Qt.AlignCenter)
         self.rt1_label.setStyleSheet(label_style)
         vbox.addWidget(self.rt1_label)
@@ -727,25 +725,51 @@ class FullScreenWindow(QMainWindow):
         return widget
 
     def _create_line_chart_widget(self):
-        self.x_axis = TimeAxisItem(orientation='bottom')
-        self.plot_widget = pg.PlotWidget(axisItems={'bottom': self.x_axis})
+        self.x_axis = TimeAxisItem(orientation="bottom")
+        self.plot_widget = pg.PlotWidget(axisItems={"bottom": self.x_axis})
         self.plot_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.plot_widget.setMinimumHeight(320)
+        self.plot_widget.setMinimumHeight(330)
         self.plot_widget.setMouseEnabled(x=False, y=False)
         self.plot_widget.hideButtons()
-        self.plot_widget.setStyleSheet("background-color: #F8FAFC; border: none; border-radius: 12px;")
-        self.plot_widget.setTitle("📊 Weight (W1 & W2) vs Time", color="#2C3E50", size="18pt")
-        self.plot_widget.addLegend(offset=(10, 10))
-        self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
+        self.plot_widget.setMenuEnabled(False)
+        self.plot_widget.setBackground("#FFFFFF")
+        self.plot_widget.getPlotItem().setContentsMargins(10, 10, 10, 10)
+        self.plot_widget.setStyleSheet("border: 1px solid #E2E8F0; border-radius: 8px;")
+
+        self.plot_widget.setTitle(
+            "<span style='color:#0F172A;font-size:16pt;font-weight:600;'>Weight Trend (W1 vs W2)</span>"
+        )
+
+        self.plot_widget.addLegend(offset=(10, 10), labelTextColor="#0F172A")
+        self.plot_widget.showGrid(x=True, y=True, alpha=0.2)
+
         scale_data = self.time_scales[self.current_time_scale]
-        self.plot_widget.setXRange(0, scale_data['range'], padding=0)
+        self.plot_widget.setXRange(0, scale_data["range"], padding=0)
         self.plot_widget.setYRange(14, 32, padding=0)
-        label_font = QtGui.QFont("Arial", 14)
-        self.x_axis.setLabel(text='Time (Seconds)', font=label_font)
-        self.plot_widget.getAxis('left').setLabel(text='Weight (kg)', font=label_font)
-        self.x_axis.set_time_unit(scale_data['unit_label'].capitalize())
-        w1_curve = self.plot_widget.plot(name='Weight 1 (W1)', pen=pg.mkPen(color='#1E3A8A', width=3))
-        w2_curve = self.plot_widget.plot(name='Weight 2 (W2)', pen=pg.mkPen(color='#FF6600', width=3))
+
+        label_font = QtGui.QFont("Segoe UI", 12, QtGui.QFont.Medium)
+        axis_pen = pg.mkPen("#94A3B8", width=1)
+        for axis in ("left", "bottom"):
+            axis_item = self.plot_widget.getAxis(axis)
+            axis_label = (
+                "Weight (kg)"
+                if axis == "left"
+                else f"Time ({scale_data['unit_label'].capitalize()})"
+            )
+            axis_item.setLabel(text=axis_label, font=label_font)
+            axis_item.setPen(axis_pen)
+            axis_item.setTextPen(pg.mkPen("#475569"))
+
+        self.x_axis.set_time_unit(scale_data["unit_label"].capitalize())
+
+        w1_pen = pg.mkPen(color="#2563EB", width=0.8, cosmetic=True)
+        w2_pen = pg.mkPen(color="#F97316", width=0.8, cosmetic=True)
+
+        w1_curve = self.plot_widget.plot(name="Weight 1 (W1)", pen=w1_pen, antialias=True)
+        w2_curve = self.plot_widget.plot(name="Weight 2 (W2)", pen=w2_pen, antialias=True)
+        for curve in (w1_curve, w2_curve):
+            curve.setClipToView(True)
+
         return self.plot_widget, w1_curve, w2_curve
 
     # # ... (inside the FullScreenWindow class) ...
@@ -786,8 +810,7 @@ class FullScreenWindow(QMainWindow):
 
         # ====== 📈 GRAPH PLOTTING ======
         if not self.is_running or not history:
-            self.w1_curve.setData([], [])
-            self.w2_curve.setData([], [])
+            self._clear_plot_items()
             return
 
         # Limit data to max history points
@@ -808,9 +831,40 @@ class FullScreenWindow(QMainWindow):
         else:
             x_data = [t / 1000 for t in time_diff_ms]
 
-        # Update curves
+        # Update curves and focus markers
         self.w1_curve.setData(x_data, w1_values)
         self.w2_curve.setData(x_data, w2_values)
+        self._update_focus_points(x_data, w1_values, w2_values)
+        self._update_axis_ranges(x_data, w1_values, w2_values)
+        self._update_axis_ranges(x_data, w1_values, w2_values)
+
+    def _update_axis_ranges(self, x_data, w1_values, w2_values):
+        if not x_data:
+            return
+        latest_x = x_data[-1]
+        window = self.time_scales[self.current_time_scale]["range"]
+        if latest_x > window:
+            start = latest_x - window
+            end = latest_x
+        else:
+            start = 0
+            end = window
+        self.plot_widget.setXRange(start, end, padding=0)
+
+        combined = list(w1_values) + list(w2_values)
+        ymin = min(combined)
+        ymax = max(combined)
+        span = max(0.2, ymax - ymin)
+        padding = span * 0.1
+        lower = max(0, ymin - padding)
+        upper = ymax + padding
+        if lower == upper:
+            upper = lower + 1
+        self.plot_widget.setYRange(lower, upper, padding=0)
+
+    def _clear_plot_items(self):
+        self.w1_curve.setData([], [])
+        self.w2_curve.setData([], [])
 
     def _clear_dashboard(self):
         """Reset UI labels, plots, and state to an idle baseline."""
@@ -828,8 +882,7 @@ class FullScreenWindow(QMainWindow):
         self._set_measure_label(self.rt1_label, "ROOM TEMP", None, "C")
         self._set_measure_label(self.w_diff_label, "DIFF (W1-W2)", None, "kg")
 
-        self.w1_curve.setData([], [])
-        self.w2_curve.setData([], [])
+        self._clear_plot_items()
 
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
@@ -978,8 +1031,7 @@ class FullScreenWindow(QMainWindow):
                 f"for experiments {', '.join(map(str, experiment_numbers))}.",
             )
             print("?? No records found.")
-            self.w1_curve.setData([], [])
-            self.w2_curve.setData([], [])
+            self._clear_plot_items()
             return
 
         cleaned_df = self._prepare_dataframe_for_display(df)
@@ -989,8 +1041,7 @@ class FullScreenWindow(QMainWindow):
                 "No Data Found",
                 "Records were found but could not be aligned to timestamps.",
             )
-            self.w1_curve.setData([], [])
-            self.w2_curve.setData([], [])
+            self._clear_plot_items()
             return
 
         row_count = len(cleaned_df)
